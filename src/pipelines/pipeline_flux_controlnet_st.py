@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# This was modied from the control net repo
+
 
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -350,7 +353,7 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                 num_images_per_prompt=num_images_per_prompt,
             )
 
-            # 💡 ADD THIS: Initialize mask and capture it from the T5 embedder
+            #  ADD THIS: Initialize mask and capture it from the T5 embedder
             prompt_attention_mask = None
             prompt_embeds, prompt_attention_mask = self._get_t5_prompt_embeds(
                 prompt=prompt_2,
@@ -366,7 +369,7 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
             if isinstance(self, FluxLoraLoaderMixin) and USE_PEFT_BACKEND:
                 unscale_lora_layers(self.text_encoder_2, lora_scale)
 
-        # ✨ FIX: Get batch_size and create text_ids with the correct shape
+        #  FIX: Get batch_size and create text_ids with the correct shape
         batch_size = prompt_embeds.shape[0]
         dtype = self.transformer.dtype
         text_ids = torch.zeros(batch_size, prompt_embeds.shape[1], 3).to(device=device, dtype=dtype)
@@ -423,7 +426,7 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
 
     @staticmethod
     # Copied from diffusers.pipelines.flux.pipeline_flux.FluxPipeline._prepare_latent_image_ids
-    # ✨ FIX: Correctly creates batched image IDs
+    # FIX: Correctly creates batched image IDs
     def _prepare_latent_image_ids(batch_size, height, width, device, dtype):
         latent_image_ids = torch.zeros(height // 2, width // 2, 3)
         latent_image_ids[..., 1] = latent_image_ids[..., 1] + torch.arange(height // 2)[:, None]
@@ -863,7 +866,7 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                     continue
 
 
-                # ✨ FIX: BATCH INPUTS FOR CFG
+                # FIX: BATCH INPUTS FOR CFG
                 if do_classifier_free_guidance:
                     latent_model_input = torch.cat([latents] * 2)
                     current_prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
@@ -881,7 +884,7 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                     current_img_ids = latent_image_ids
                     current_control_image = control_image
 
-                # ✨ FIX: Integrate with device handling
+                # FIX: Integrate with device handling
                 target_device = self.transformer.device
                 self.controlnet.to(target_device)
 
@@ -929,7 +932,7 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                     joint_attention_kwargs=self.joint_attention_kwargs, return_dict=False
                 )[0]
 
-                # ✨ FIX: Apply CFG formula
+                # FIX: Apply CFG formula
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_cond = noise_pred.chunk(2)
                     noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_cond - noise_pred_uncond)
