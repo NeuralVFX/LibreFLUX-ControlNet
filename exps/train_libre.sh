@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export DATA_DIR="./data_dir"
+export DATA_DIR="./sam_dataset/sam_img"
 export SAVE_DIR="./save_dir"
 
 if [ -z $1 ]; then
@@ -36,13 +36,12 @@ echo "-------------------------------"
 
 cd ..
 
-export CUDA_VISIBLE_DEVICES=2,1
 
-
-VALID_STEPS=100000
+VALID_STEPS=1000
 CKPT_STEPS=1000
 
 YOLO_VERBOSE=0 python train_flux.py \
+  --offload_gpu 0 \
   --gradient_checkpointing \
   --task                          "AB" \
   --use_8bit_adam \
@@ -62,8 +61,8 @@ YOLO_VERBOSE=0 python train_flux.py \
   --max_sequence_length           512 \
   --weighting_scheme              "logit_normal" \
   --validation_path               "validation_images_cc" \
-  --validation_resolution         1024 \
-  --resolution                    1024 \
+  --validation_resolution         512 \
+  --resolution                    512 \
   --guidance_scale                4.0 \
   --num_workers                   1 \
   --num_train_epochs              100

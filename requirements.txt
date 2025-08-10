@@ -9,7 +9,7 @@ certifi==2024.8.30
 charset-normalizer==3.3.2
 controlnet-aux==0.0.9
 datasets==2.20.0
-diffusers @ git+https://github.com/huggingface/diffusers@14f6464bef677e47e1ff13a12f4ddd97e7f3e973
+diffusers==0.32.0
 dill==0.3.8
 einops==0.8.0
 filelock==3.16.1

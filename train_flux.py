@@ -747,7 +747,7 @@ def main(args):
         )
 
     # You need at least two GPUs to offload the VAE.
-    if torch.cuda.device_count() < 2:
+    if torch.cuda.device_count() < 2 and args.offload_gpu > 1:
         raise ValueError("VAE offloading requires at least two GPUs.")
 
     main_device = accelerator.device
