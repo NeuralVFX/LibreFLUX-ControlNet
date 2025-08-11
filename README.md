@@ -1,7 +1,7 @@
 # flux-controlnet
 
 This repo is a controlnet training project for LibreFLUX, I borrowed heavily from these repos:
-- https://github.com/christopher-beckham/flux-controlnet
+- https://github.com/christopher-beckham/flux-controlnet ( Its basically a fork of this )
 - https://huggingface.co/jimmycarter/LibreFLUX
 - https://github.com/bghira/SimpleTuner
 
