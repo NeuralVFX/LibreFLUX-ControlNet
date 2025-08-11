@@ -24,7 +24,6 @@ fi
 
 EXP_NAME=${EXP_GROUP}/${EXP_ID}
 OUTPUT_DIR=${SAVE_DIR}/${EXP_NAME}
-OUTPUT_DIR="./output"
 
 echo "-------------------------------"
 echo "Exp group        :  " $EXP_GROUP
