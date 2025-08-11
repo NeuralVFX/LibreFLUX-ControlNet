@@ -878,28 +878,16 @@ def main(args):
             logger.info("SELECTIVE QUANTIZE: Transformer and VAE only...")
             # Move to CPU for quantization to avoid OOM
             transformer.to("cpu")
-            #text_encoder_one.to("cpu")
-            #text_encoder_two.to("cpu")
             vae.to("cpu")
-            TRANSFORMER_EXCLUDE_LIST = [
-                "*.norm", "*.norm1", "*.norm2", "*.norm2_context",
-                "proj_out", "x_embedder", "norm_out", "context_embedder",
-            ]
 
-            quantize(transformer, weights=qint8,exclude=TRANSFORMER_EXCLUDE_LIST)
-            #quantize(transformer, weights=qint8)
-            #quantize(text_encoder_one, weights=qint8)
-            #quantize(text_encoder_two, weights=qint8)
+            quantize(transformer, weights=qint8)
             quantize(vae, weights=qint8)
+
             freeze(transformer)
-            #freeze(text_encoder_one)
-            #freeze(text_encoder_two)
             freeze(vae)
 
             # Move them back to their respective GPUs
             vae.to(offload_device)
-            #text_encoder_one.to(offload_device)
-            #text_encoder_two.to(offload_device)
             transformer.to(main_device)
             logger.info("Finished quantization and moved models back to GPUs.")
 
@@ -1467,7 +1455,7 @@ def main(args):
                     encoder_hidden_states=prompt_embeds,
                     attention_mask=prompt_mask,  # <-- ADD THIS
                     txt_ids=text_ids_on_device,
-                    img_ids=latent_image_ids,
+                    img_ids=latent_image_ids[0],
                     return_dict=False,
                 )
 
@@ -1499,7 +1487,7 @@ def main(args):
                     controlnet_block_samples=controlnet_block_samples,
                     controlnet_single_block_samples=controlnet_single_block_samples,
                     txt_ids=text_ids[0],
-                    img_ids=latent_image_ids,
+                    img_ids=latent_image_ids[0],
                     return_dict=False,
                 )[0]
 

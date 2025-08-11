@@ -41,7 +41,6 @@ CKPT_STEPS=1000
 
 YOLO_VERBOSE=0 python train_flux.py \
   --offload_gpu 0 \
-  --gradient_checkpointing \
   --task                          "AB" \
   --use_8bit_adam \
   --mixed_precision                bf16 \
