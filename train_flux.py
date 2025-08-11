@@ -580,6 +580,7 @@ def get_dataset(
                     #download_mode="force_redownload" , # <-- Add this line
                     #cache_dir = './cache/'
     )
+    # TODO - make num proc adjustable
     dataset = dataset.map(add_path_column, batched=False, num_proc=64)
     # NOTE(Chris): why is the main_process_first call needed??
     with accelerator.main_process_first():
