@@ -16,30 +16,15 @@ conda activate <my env name>
 ```
 ### Setup
 
-Clone the repository.
-
-Change the current directory to LibreFLUX-ControlNet/.
+- Clone the repository.
+- Change the current directory to LibreFLUX-ControlNet/.
 
 `cd LibreFLUX-ControlNet/`
 
-Install the required dependencies using the requirements.txt file.
+- Install the required dependencies using the requirements.txt file.
 
 `pip install -r requirements.txt`
 
-Change the current directory to exps.
-
-Copy the backup environment file env.sh.bak to env.sh.
-
-Source the environment file env.sh.
-
-Run the training script train_libre.sh
-
-```
-cd exps
-cp env.sh.bak env.sh
-source env.sh
-bash train_libre.sh 512_TEST
-```
 
 ### Dataset
 
