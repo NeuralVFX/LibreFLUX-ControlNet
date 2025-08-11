@@ -30,7 +30,7 @@ cd exps
 cp env.sh.bak env.sh
 source env.sh
 bash train_libre.sh 512_TEST
-``
+```
 
 ### Dataset
 
