@@ -14,19 +14,19 @@ This repo is a controlnet training project for LibreFLUX, I borrowed heavily fro
 Create a conda environment:
 
 ```
-conda create -n <my env name> python=3.9
+conda create -n <my env name> python=3.11
 conda activate <my env name>
 ```
 ### Setup
 
 - Clone the repository.
-- Change the current directory to LibreFLUX-ControlNet/.
-
-`cd LibreFLUX-ControlNet/`
-
-- Install the required dependencies using the requirements.txt file.
-
-`pip install -r requirements.txt`
+- Change the current directory to `LibreFLUX-ControlNet/`.
+- Install the required dependencies using the `requirements.txt` file.
+```
+git clone https://github.com/NeuralVFX/LibreFLUX-ControlNet/
+cd LibreFLUX-ControlNet/
+pip install -r requirements.txt
+```
 
 
 ### Dataset
