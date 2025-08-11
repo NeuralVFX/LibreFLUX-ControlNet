@@ -14,19 +14,23 @@ Create a conda environment:
 conda create -n <my env name> python=3.9
 conda activate <my env name>
 ```
+### Setup
 
-We need to install the following:
-
+Clone the repository.
+Change the current directory to LibreFLUX-ControlNet/.
+`cd LibreFLUX-ControlNet/`
+Install the required dependencies using the requirements.txt file.
+`pip install -r requirements.txt`
+Change the current directory to exps.
+Copy the backup environment file env.sh.bak to env.sh.
+Source the environment file env.sh.
+Run the training script train_libre.sh
 ```
-pip install git+https://github.com/huggingface/diffusers
-pip install git+https://github.com/huggingface/accelerate
-pip install git+https://github.com/huggingface/transformers
-pip install git+https://github.com/huggingface/optimum-quanto
-pip install datasets==2.20.0 tabulate==0.9.0 controlnet-aux==0.0.9
-pip install sentencepiece protobuf bitsandbytes
-```
-
-Because Python package management is a pain, if you are still missing packages then you can also consult `requirements.txt`, and/or try install with `pip install -r requirements.txt`.
+cd exps
+cp env.sh.bak env.sh
+source env.sh
+bash train_libre.sh 512_TEST
+``
 
 ### Dataset
 
