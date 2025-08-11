@@ -1,6 +1,9 @@
 # flux-controlnet
 
-This repo is a controlnet training project for LibreFLUX, it was modified from https://github.com/christopher-beckham/flux-controlnet
+This repo is a controlnet training project for LibreFLUX, I borrowed heavily from these repos:
+- https://github.com/christopher-beckham/flux-controlnet
+- https://huggingface.co/jimmycarter/LibreFLUX
+- https://github.com/bghira/SimpleTuner
 
 **Disclaimer:** The intent of this is to make it possible to train a controlnet based on LibreFLUX. This means incorperating Attention Masking, removing the distilled guidance vector during training, and running inference with CFG. This still doesn't have unconditional training yet, thats in development... This is pieced together by modifying the original repo, and borrowing some components from SimpleTuner. Use at your own risk!
 
@@ -33,8 +36,8 @@ I've prepared a simple dataset in `sam_dataset` so you can see how to structure 
 ### Configuration
 
 Firstly, cd into `exps`, `cp env.sh.bak env.sh` and make sure the following variables are defined:
-- `$DATA_DIR`: where your dataset is located, e.g. `/home/chris/datasets/dog-example`.
-- `$SAVE_DIR`: where to save experiments, e.g. `/home/chris/datasets/results`.
+- `$DATA_DIR`: where your dataset is located, e.g. `/sam_dataset/sam_img/`.
+- `$SAVE_DIR`: where to save experiments, e.g. `./save_dir`.
 - (optional) `NEPTUNE_API_KEY` for logging to Neptune. If you use Neptune, make sure to install it with `pip install neptune`.
 
 Also, if you are dealing with gated models or want to upload them then ensure you are authenticated on huggingface via `huggingface-cli login`.
