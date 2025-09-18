@@ -111,6 +111,14 @@ logger = get_logger(__name__)
 # If we have less than this amount of free space in GB, quit script
 MAX_FREE_SPACE_CUTOFF = 15.0
 
+def _maybe_to(x, device=None, dtype=None):
+    if x is None:
+        return None
+    need_dev = device is not None and str(getattr(x, "device", None)) != str(device)
+    need_dt  = dtype  is not None and getattr(x, "dtype", None) != dtype
+    return x.to(device=device if need_dev else getattr(x, "device", None),
+                dtype=dtype  if need_dt  else getattr(x, "dtype",  None)) if (need_dev or need_dt) else x
+
 
 def unwrap_model(accelerator, model):
     model = accelerator.unwrap_model(model)
@@ -757,7 +765,7 @@ def main(args):
     if main_device == offload_device:
         raise ValueError(
             f"The main device ({main_device}) and VAE device ({offload_device}) must be different. "
-            f"Please specify a different --vae_gpu."
+            f"Please specify a different --offload_gpu."
         )
 
     logger.info(f"Main training components will run on: {main_device}")
@@ -1260,13 +1268,6 @@ def main(args):
     ## MODIFICATION: Create a patch for vae.decode to be used during validation.
     # This avoids OOM on the main device by keeping the VAE on its own device
     # and only moving the latents tensor during the decode call.
-    original_vae_decode = vae.decode
-    def patched_decode(latents, return_dict=True, generator=None):
-        """A wrapper for vae.decode that moves latents to the VAE device."""
-        latents_on_offload_device = latents.to(offload_device)
-        # Some decode methods might not accept all args, so we pass only what's needed.
-        decoded_output = original_vae_decode(latents_on_offload_device, return_dict=return_dict)
-        return decoded_output
 
 
     def get_sigmas(timesteps, n_dim=4, dtype=torch.float32):
@@ -1330,22 +1331,18 @@ def main(args):
                         max_sequence_length=args.max_sequence_length,
                         device=offload_device,
                     )
-                    prompt_embeds = prompt_embeds.to(main_device)
-                    pooled_prompt_embeds = pooled_prompt_embeds.to(main_device)
-                    # text_ids and prompt_mask are small and can be moved if needed,
-                    # but often don't need to be if the next model part doesn't require them on GPU.
-                    # Let's move them just in case.
-                    text_ids = text_ids.to(main_device)
-                    prompt_mask = prompt_mask.to(main_device)
+                prompt_embeds        = _maybe_to(prompt_embeds,        device=main_device)
+                pooled_prompt_embeds = _maybe_to(pooled_prompt_embeds, device=main_device)
+                text_ids             = [ _maybe_to(t, device=main_device) for t in text_ids ]
+                prompt_mask          = _maybe_to(prompt_mask,          device=main_device)
                 # 1. Convert the actual noised image to latent space.
                 with torch.no_grad():
 
                     ## MODIFICATION: Move input images to offload_device, encode, then move latents back to main_device.
-                    pixel_values_on_offload_device = pixel_values.to(offload_device, dtype=vae.dtype)
-
-                    model_input = vae.encode(pixel_values_on_offload_device).latent_dist.sample()
-                    model_input = model_input.to(main_device) # Move back to main device
-
+                    pixel_values = _maybe_to(pixel_values, device=offload_device, dtype=vae.dtype)
+                    model_input  = vae.encode(pixel_values).latent_dist.sample()
+                    model_input  = _maybe_to(model_input, device=main_device)
+                    
                     model_input = (
                         model_input - vae.config.shift_factor
                     ) * vae.config.scaling_factor
@@ -1414,9 +1411,9 @@ def main(args):
                         )
 
                     ## MODIFICATION: Same as above for the conditioning image.
-                    cond_pixel_values_on_offload_device = cond_pixel_values.to(offload_device, dtype=vae.dtype)
-                    control_image = vae.encode(cond_pixel_values_on_offload_device).latent_dist.sample()
-                    control_image = control_image.to(main_device) # Move back to main device
+                    cond_pixel_values = _maybe_to(cond_pixel_values, device=offload_device, dtype=vae.dtype)
+                    control_image     = vae.encode(cond_pixel_values).latent_dist.sample()
+                    control_image     = _maybe_to(control_image, device=main_device)
 
                     control_image = (
                         control_image - vae.config.shift_factor
@@ -1431,31 +1428,35 @@ def main(args):
                     )
 
                 # Ensure all inputs to controlnet are on the correct device
-                current_controlnet_device = transformer.device # Or the device your main model is on
-
-                packed_noisy_model_input = packed_noisy_model_input.to(current_controlnet_device)
-                control_image = control_image.to(current_controlnet_device)
-                control_mode = control_mode.to(current_controlnet_device) if control_mode is not None else control_mode
-                timesteps_on_device = (timesteps / 1000).to(current_controlnet_device)
-                guidance = guidance.to(current_controlnet_device) if guidance is not None else guidance
-                pooled_prompt_embeds = pooled_prompt_embeds.to(current_controlnet_device)
-                prompt_embeds = prompt_embeds.to(current_controlnet_device)
-                prompt_mask = prompt_mask.to(current_controlnet_device)
-                text_ids_on_device = text_ids[0].to(current_controlnet_device) # Assuming text_ids[0] is the relevant tensor
-                latent_image_ids = latent_image_ids.to(current_controlnet_device)
-
+                current_controlnet_device = transformer.device
+                
+                packed_noisy_model_input = _maybe_to(packed_noisy_model_input, device=current_controlnet_device)
+                control_image           = _maybe_to(control_image,           device=current_controlnet_device)
+                if control_mode is not None:
+                    control_mode        = _maybe_to(control_mode,            device=current_controlnet_device)
+                if guidance is not None:
+                    guidance            = _maybe_to(guidance,                device=current_controlnet_device)
+                pooled_prompt_embeds    = _maybe_to(pooled_prompt_embeds,    device=current_controlnet_device)
+                prompt_embeds           = _maybe_to(prompt_embeds,           device=current_controlnet_device)
+                prompt_mask             = _maybe_to(prompt_mask,             device=current_controlnet_device)
+                latent_image_ids        = _maybe_to(latent_image_ids,        device=current_controlnet_device)
+                
+                timesteps = (timesteps / 1000.0)
+                timesteps = _maybe_to(timesteps, device=current_controlnet_device)
+                text_ids = [ _maybe_to(t, device=current_controlnet_device) for t in text_ids ]
+                
                 # Edit 11  add attention mask
                 controlnet_block_samples, controlnet_single_block_samples = controlnet(
                     hidden_states=packed_noisy_model_input,
                     controlnet_cond=control_image,
                     controlnet_mode=control_mode,
                     conditioning_scale=1.0,
-                    timestep=timesteps_on_device, # Use the device-correct timestep
+                    timestep=timesteps, 
                     guidance=guidance,
                     pooled_projections=pooled_prompt_embeds,
                     encoder_hidden_states=prompt_embeds,
                     attention_mask=prompt_mask,  # <-- ADD THIS
-                    txt_ids=text_ids_on_device,
+                    txt_ids=text_ids[0],
                     img_ids=latent_image_ids[0],
                     return_dict=False,
                 )
@@ -1480,7 +1481,7 @@ def main(args):
                 # Edit 12 add attention mask
                 model_pred = transformer(
                     hidden_states=packed_noisy_model_input,
-                    timestep=timesteps / 1000,
+                    timestep=timesteps,
                     guidance=guidance,
                     pooled_projections=pooled_prompt_embeds,
                     encoder_hidden_states=prompt_embeds,
@@ -1599,7 +1600,6 @@ def main(args):
 
                 if global_step % args.validation_steps == 0 or global_step == 10:
                     # with torch.autocast("cuda"):
-                    pipeline.vae.decode = patched_decode
 
                     samples = log_validation(
                         pipeline,
@@ -1616,8 +1616,6 @@ def main(args):
                         # **json.loads(args.pipe_kwargs)
                     )
 
-                    ## MODIFICATION: Restore the original VAE decode method.
-                    pipeline.vae.decode = original_vae_decode
 
                     if accelerator.is_main_process:
                         if not disable_neptune:

@@ -87,6 +87,13 @@ EXAMPLE_DOC_STRING = """
         ```
 """
 
+def _maybe_to(x: torch.Tensor, device: Optional[torch.device] = None, dtype: Optional[torch.dtype] = None):
+    if device is None and dtype is None:
+        return x
+    need_dev = device is not None and str(getattr(x, "device", None)) != str(device)
+    need_dt  = dtype  is not None and getattr(x, "dtype", None) != dtype
+    return x.to(device=device if need_dev else x.device, dtype=dtype if need_dt else x.dtype) if (need_dev or need_dt) else x
+
 
 # Copied from diffusers.pipelines.flux.pipeline_flux.calculate_shift
 def calculate_shift(
@@ -762,9 +769,10 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
             #)
 
             # vae encode
-            control_image = self.vae.encode(control_image.to(self.vae.device)).latent_dist.sample()
+            control_image = _maybe_to(control_image, device=self.vae.device)
+            control_image = self.vae.encode(control_image).latent_dist.sample()
             control_image = (control_image - self.vae.config.shift_factor) * self.vae.config.scaling_factor
-            control_image.to(device)
+            control_image = _maybe_to(control_image, device=device)
             # pack
             height_control_image, width_control_image = control_image.shape[2:]
             control_image = self._pack_latents(
@@ -796,9 +804,10 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                 height, width = control_image_.shape[-2:]
 
                 # vae encode
-                control_image_ = self.vae.encode(control_image_.to(self.vae.device)).latent_dist.sample()
+                control_image_ = _maybe_to(control_image_, device=self.vae.device)
+                control_image_ = self.vae.encode(control_image_).latent_dist.sample()
                 control_image_ = (control_image_ - self.vae.config.shift_factor) * self.vae.config.scaling_factor
-                control_image_.to(device)
+                control_image_ = _maybe_to(control_image_, device=device)
                 # pack
                 height_control_image, width_control_image = control_image_.shape[2:]
                 control_image_ = self._pack_latents(
@@ -860,6 +869,8 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
         self._num_timesteps = len(timesteps)
 
         # 6. Denoising loop
+        target_device = self.transformer.device
+        self.controlnet.to(target_device)
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 if self.interrupt:
@@ -886,50 +897,56 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
 
                 # FIX: Integrate with device handling
                 target_device = self.transformer.device
-                self.controlnet.to(target_device)
 
                 # Move all inputs to the target device
-                latent_model_input_on_device = latent_model_input.to(target_device)
-                current_prompt_embeds_on_device = current_prompt_embeds.to(target_device)
-                current_pooled_embeds_on_device = current_pooled_embeds.to(target_device)
-                current_attention_mask_on_device = current_attention_mask.to(target_device)
-                current_text_ids_on_device = current_text_ids.to(target_device)
-                current_img_ids_on_device = current_img_ids.to(target_device)
-                current_control_image_on_device = current_control_image.to(target_device) if isinstance(current_control_image, torch.Tensor) else [c.to(target_device) for c in current_control_image]
-                control_mode_on_device = control_mode.to(target_device) if control_mode is not None else None
-                timestep_on_device = t.expand(latent_model_input_on_device.shape[0]).to(target_device)
+                latent_model_input   = _maybe_to(latent_model_input,   device=target_device)
+                current_prompt_embeds = _maybe_to(current_prompt_embeds, device=target_device)
+                current_pooled_embeds = _maybe_to(current_pooled_embeds, device=target_device)
+                current_attention_mask = _maybe_to(current_attention_mask, device=target_device)
+                current_text_ids      = _maybe_to(current_text_ids,    device=target_device)
+                current_img_ids       = _maybe_to(current_img_ids,     device=target_device)
+                if isinstance(current_control_image, torch.Tensor):
+                    current_control_image = _maybe_to(current_control_image, device=target_device)
+                else:
+                    current_control_image = [ _maybe_to(c, device=target_device) for c in current_control_image ]
+                control_mode = _maybe_to(control_mode, device=target_device) if control_mode is not None else None
+                
+                t = t.expand(latent_model_input.shape[0])
+                t = _maybe_to(t, device=target_device)
 
                 # Model calls
                 controlnet_block_samples, controlnet_single_block_samples = self.controlnet(
-                    hidden_states=latent_model_input_on_device,
-                    controlnet_cond=current_control_image_on_device,
-                    controlnet_mode=control_mode_on_device,
+                    hidden_states=latent_model_input,
+                    controlnet_cond=current_control_image,
+                    controlnet_mode=control_mode,
                     conditioning_scale=controlnet_conditioning_scale,
-                    timestep=(timestep_on_device / 1000),
+                    timestep=(t / 1000),
                     guidance=None,
-                    pooled_projections=current_pooled_embeds_on_device,
-                    encoder_hidden_states=current_prompt_embeds_on_device,
-                    attention_mask=current_attention_mask_on_device,
-                    txt_ids=current_text_ids_on_device,
-                    img_ids=current_img_ids_on_device,
-                    joint_attention_kwargs=self.joint_attention_kwargs, return_dict=False
+                    pooled_projections=current_pooled_embeds,
+                    encoder_hidden_states=current_prompt_embeds,
+                    attention_mask=current_attention_mask,
+                    txt_ids=current_text_ids,
+                    img_ids=current_img_ids,
+                    joint_attention_kwargs=self.joint_attention_kwargs,
+                    return_dict=False
                 )
 
                 controlnet_block_samples = [elem.to(dtype=latents.dtype, device=target_device) for elem in controlnet_block_samples]
                 controlnet_single_block_samples = [elem.to(dtype=latents.dtype, device=target_device) for elem in controlnet_single_block_samples]
 
                 noise_pred = self.transformer(
-                    hidden_states=latent_model_input_on_device,
-                    timestep=(timestep_on_device / 1000),
+                    hidden_states=latent_model_input,
+                    timestep=(t / 1000),
                     guidance=None,
-                    pooled_projections=current_pooled_embeds_on_device,
-                    encoder_hidden_states=current_prompt_embeds_on_device,
-                    attention_mask=current_attention_mask_on_device,
+                    pooled_projections=current_pooled_embeds,
+                    encoder_hidden_states=current_prompt_embeds,
+                    attention_mask=current_attention_mask,
                     controlnet_block_samples=controlnet_block_samples,
                     controlnet_single_block_samples=controlnet_single_block_samples,
-                    txt_ids=current_text_ids_on_device,
-                    img_ids=current_img_ids_on_device,
-                    joint_attention_kwargs=self.joint_attention_kwargs, return_dict=False
+                    txt_ids=current_text_ids,
+                    img_ids=current_img_ids,
+                    joint_attention_kwargs=self.joint_attention_kwargs,
+                    return_dict=False
                 )[0]
 
                 # FIX: Apply CFG formula
@@ -937,8 +954,8 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                     noise_pred_uncond, noise_pred_cond = noise_pred.chunk(2)
                     noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_cond - noise_pred_uncond)
 
-
-                noise_pred = noise_pred.to(latents.device)
+                ## Probably not needed
+                #noise_pred = noise_pred.to(latents.device)
 
                 latents_dtype = latents.dtype
                 latents = self.scheduler.step(noise_pred, t, latents, return_dict=False)[0]
@@ -971,7 +988,8 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
             latents = self._unpack_latents(latents, height, width, self.vae_scale_factor)
             latents = (latents / self.vae.config.scaling_factor) + self.vae.config.shift_factor
 
-            image = self.vae.decode(latents.to(self.vae.device), return_dict=False)[0]
+            latents = _maybe_to(latents, device=self.vae.device)
+            image = self.vae.decode(latents, return_dict=False)[0]
             image = self.image_processor.postprocess(image, output_type=output_type)
 
         # Offload all models
