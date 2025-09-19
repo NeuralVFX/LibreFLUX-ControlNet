@@ -77,6 +77,7 @@ It _should_ be possible to train on a single 40GB A100 GPU for a "modestly"-size
 Here is a breakdown of how we save on GPU memory:
 
 - `--offload_gpu 1`: moves the VAE to the second GPU ( Added by NeuralVFX )
+- `--gradient_checkpointing`: save memory by recomputing activations during backward instead of storing them.
 - `--mixed_precision bf16`: everything gets cast into this precision, even the ControlNet.
 - `--use_8bit_adam`: ADAM uses a lot of GPU memory since it has to store statistics for each parameter being trained. Here we use the 8-bit version.
 - `--quantize`: quantise everything (except ControlNet, text encoders, and certain layers of the transformer) into `int8` via the `optimum-quanto` library. This is _weight only_ quantisation, so params are stored in `int8` and are de-quantised on the fly. You may be able to squeeze out even more savings with lower bits but this has not been tested.
