@@ -44,15 +44,15 @@ Also, if you are dealing with gated models or want to upload them then ensure yo
 
 ## Training
 
-Please see `exps/train.sh` for an example script. The script usage is as follows:
+Please see `exps/train_libre.sh` for an example script. The script usage is as follows:
 
 ```
 cd exps
 source env.sh # do this just once, very important
-bash train.sh <name of experiment>
+bash train_libre.sh <name of experiment>
 ```
 
-For instance, running with `bash train.sh my_experiment` gives the following printout before the rest of the code is executed:
+For instance, running with `bash train_libre.sh my_experiment` gives the following printout before the rest of the code is executed:
 
 ```
 -------------------------------
@@ -76,6 +76,7 @@ It _should_ be possible to train on a single 40GB A100 GPU for a "modestly"-size
 
 Here is a breakdown of how we save on GPU memory:
 
+- `--offload_gpu 1`: moves the VAE to the second GPU ( Added by NeuralVFX )
 - `--mixed_precision bf16`: everything gets cast into this precision, even the ControlNet.
 - `--use_8bit_adam`: ADAM uses a lot of GPU memory since it has to store statistics for each parameter being trained. Here we use the 8-bit version.
 - `--quantize`: quantise everything (except ControlNet, text encoders, and certain layers of the transformer) into `int8` via the `optimum-quanto` library. This is _weight only_ quantisation, so params are stored in `int8` and are de-quantised on the fly. You may be able to squeeze out even more savings with lower bits but this has not been tested.
