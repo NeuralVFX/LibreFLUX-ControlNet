@@ -911,8 +911,8 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                     current_control_image = [ _maybe_to(c, device=target_device) for c in current_control_image ]
                 control_mode = _maybe_to(control_mode, device=target_device) if control_mode is not None else None
                 
-                t = t.expand(latent_model_input.shape[0])
-                t = _maybe_to(t, device=target_device)
+                t_model = t.expand(latent_model_input.shape[0]).to(target_device)
+
 
                 # Model calls
                 controlnet_block_samples, controlnet_single_block_samples = self.controlnet(
@@ -920,7 +920,7 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                     controlnet_cond=current_control_image,
                     controlnet_mode=control_mode,
                     conditioning_scale=controlnet_conditioning_scale,
-                    timestep=(t / 1000),
+                    timestep=(t_model / 1000),
                     guidance=None,
                     pooled_projections=current_pooled_embeds,
                     encoder_hidden_states=current_prompt_embeds,
@@ -936,7 +936,7 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
 
                 noise_pred = self.transformer(
                     hidden_states=latent_model_input,
-                    timestep=(t / 1000),
+                    timestep=(t_model / 1000),
                     guidance=None,
                     pooled_projections=current_pooled_embeds,
                     encoder_hidden_states=current_prompt_embeds,
