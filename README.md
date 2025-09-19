@@ -67,7 +67,7 @@ Data dir         :   /home/chris/datasets/dog-example
 i.e., `my_experiment_123/1727111804` is the unique identifier of the experiment which lives under `$SAVE_DIR`. Currently, the digit identifier is just Unix time, but you can modify this to support whatever experiment scheduler system you're using (e.g. Slurm). Note that if you invoke the script like so:
 
 ```
-bash train.sh <experiment name>/<id>
+bash train_libre.sh <experiment name>/<id>
 ```
 
 then `<id>` will be used instead as the digit identifier. If you use Neptune to log experiments, then you can run `NEPTUNE_PROJECT=<neptune project name> bash train.sh <experiment name>` instead. 
