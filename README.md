@@ -68,7 +68,7 @@ i.e., `my_experiment_123/1727111804` is the unique identifier of the experiment 
 
 For quicker dataset discovery, set arg:
 ```
-- `--num_workers 32`: Allows multi-threaded dataset discovery( Added by NeuralVFX )
+- `--num_workers 32`: Allows multi-threaded dataset discovery
 ```
 
 ```
