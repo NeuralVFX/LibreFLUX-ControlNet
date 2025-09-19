@@ -35,7 +35,7 @@ I've prepared a simple dataset in `sam_dataset` so you can see how to structure 
 
 ### Configuration
 
-Firstly, cd into `exps`, `cp env.sh.bak env.sh` and make sure the following variables are defined:
+Firstly, cd into `exps`, and modify `env.sh` to make sure the following variables are defined:
 - `$DATA_DIR`: where your dataset is located, e.g. `/sam_dataset/sam_img/`.
 - `$SAVE_DIR`: where to save experiments, e.g. `./save_dir`.
 - (optional) `NEPTUNE_API_KEY` for logging to Neptune. If you use Neptune, make sure to install it with `pip install neptune`.
