@@ -589,7 +589,7 @@ def get_dataset(
                     #cache_dir = './cache/'
     )
     # TODO - make num proc adjustable
-    dataset = dataset.map(add_path_column, batched=False, num_proc=64)
+    dataset = dataset.map(add_path_column, batched=False, num_proc=args.num_workers)
     # NOTE(Chris): why is the main_process_first call needed??
     with accelerator.main_process_first():
         train_dataset = dataset["train"].shuffle(seed=seed)
