@@ -116,18 +116,7 @@ For each pipeline component we scan through all the parameters and list _all_ th
 
 As you can see, under the default arguments the ControlNet is ~1,347,920,000 (~1.3B) params which is absolutely ginormous in absolute scale but still "small" in relative scale (the base transformer is ~11B params, so this amounts to ~10% of that size). From personal experience it seems as though this model size is "required" to get a decent performing model (short of a more long term solution in finding a more efficient architecture). For reference, the Shakker Labs CN-Union-Pro is much larger and sits at ~3.3B params. (While you can try to run this in `exps/train-510.sh`, it will probably fail.)
 
-### Uploading to the Hub
-
-Simply cd into `exps` and run:
-
-```
-bash upload.sh <experiment name>/checkpoint-<iteration> <org>/<model name> --model_type=controlnet
-```
-
-Note that `<experiment name>/checkpoint-<iteration>` is relative to `$SAVE_DIR`. `<org>` will be either your HuggingFace username or organisation name.
-
-
-# Quick Inference Example: Single Image + Prompt
+## Inference Example: Single Image + Prompt
 
 Use the simple mode to generate from one control image and one prompt, no metadata.jsonl required.
 
@@ -139,7 +128,6 @@ Use the simple mode to generate from one control image and one prompt, no metada
   --image "/content/LibreFLUX-ControlNet/test_cc/libre_flux.png" \
   --prompt "many pieces of drift wood spelling libre flux sitting casting shadow on the lumpy sandy beach with foot prints all over it"
 ```
-
 
 Notes:
 
@@ -154,5 +142,16 @@ Optional quality controls:
 --negative_prompt "blurry, bokeh, jpeg artifacts"
 ```
 
-
 Batch mode with JSONL still works the same; use `--metadata_dir` instead of `--image` and `--prompt`
+
+## Uploading to the Hub
+
+Simply cd into `exps` and run:
+
+```
+bash upload.sh <experiment name>/checkpoint-<iteration> <org>/<model name> --model_type=controlnet
+```
+
+Note that `<experiment name>/checkpoint-<iteration>` is relative to `$SAVE_DIR`. `<org>` will be either your HuggingFace username or organisation name.
+
+
