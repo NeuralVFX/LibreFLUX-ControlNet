@@ -1,15 +1,15 @@
 # LibreFLUX-ControlNet
 ![LibreFLUX example](examples/libre_flux_example.png)
 
-This repo is a controlnet training project for LibreFLUX, I borrowed heavily from these repos:
-- https://github.com/christopher-beckham/flux-controlnet ( Its a fork of this )
-- https://huggingface.co/jimmycarter/LibreFLUX
-- https://github.com/bghira/SimpleTuner
-
-The intent of this is to make it possible to train a controlnet based on LibreFLUX. This means:
+The intent of this REPO is to make it possible to train a controlnet based on LibreFLUX. This means:
 - Incorperating Attention Masking
 - Removing the distilled guidance vector during training
 - Running inference with CFG.
+
+I borrowed heavily from these repos:
+- https://github.com/christopher-beckham/flux-controlnet ( Its a fork of this )
+- https://huggingface.co/jimmycarter/LibreFLUX
+- https://github.com/bghira/SimpleTuner
 
 **Disclaimer:** This is pieced together by modifying the original repo, and borrowing some components from SimpleTuner and LibreFlux. Use at your own risk!
 
