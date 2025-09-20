@@ -73,9 +73,9 @@ Data dir         :   /home/chris/datasets/dog-example
 i.e., `my_experiment_123/1727111804` is the unique identifier of the experiment which lives under `$SAVE_DIR`. Currently, the digit identifier is just Unix time, but you can modify this to support whatever experiment scheduler system you're using (e.g. Slurm). Note that if you invoke the script like so:
 
 For quicker dataset discovery, set arg:
-```
-- `--num_workers 32`: Allows multi-threaded dataset discovery
-```
+
+`--num_workers 32`: Allows multi-threaded dataset discovery
+
 
 ```
 bash train_libre.sh <experiment name>/<id>
