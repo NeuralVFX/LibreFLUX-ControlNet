@@ -126,3 +126,33 @@ bash upload.sh <experiment name>/checkpoint-<iteration> <org>/<model name> --mod
 
 Note that `<experiment name>/checkpoint-<iteration>` is relative to `$SAVE_DIR`. `<org>` will be either your HuggingFace username or organisation name.
 
+
+# Quick Inference Example: Single Image + Prompt
+
+Use the simple mode to generate from one control image and one prompt, no metadata.jsonl required.
+
+```python inference.py \
+  --base_model "jimmycarter/LibreFlux-SimpleTuner" \
+  --controlnet_path "/content/drive/MyDrive/pod_output/libreflux_controlnet_1024/checkpoint-165000/controlnet-cuda" \
+  --output_dir "/content/LibreFLUX-ControlNet/inference_test" \
+  --steps 75 \
+  --image "/content/LibreFLUX-ControlNet/test_cc/libre_flux.png" \
+  --prompt "many pieces of drift wood spelling libre flux sitting casting shadow on the lumpy sandy beach with foot prints all over it"
+```
+
+
+Notes:
+
+```
+--prompt is the positive text prompt.
+```
+
+Optional quality controls: 
+```
+--guidance_scale 4.0
+--controlnet_conditioning_scale 1.0
+--negative_prompt "blurry, bokeh, jpeg artifacts"
+```
+
+
+Batch mode with JSONL still works the same; use `--metadata_dir` instead of `--image` and `--prompt`
