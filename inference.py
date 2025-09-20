@@ -115,11 +115,11 @@ def load_pipeline(
     dev = torch.device(device)
     tr.to(dev, dtype=torch_dtype)
     cn.to(dev, dtype=torch_dtype)
-
-    # If you have room, you can also move VAE & text encoders; otherwise leave them on CPU.
-    # vae.to(dev, dtype=torch_dtype)
-    # te1.to(dev, dtype=torch_dtype)
-    # te2.to(dev, dtype=torch_dtype)
+    
+    # Move VAE + text encoders to GPU too (this is the big speed win)
+    vae.to(dev, dtype=torch_dtype)
+    te1.to(dev, dtype=torch_dtype)
+    te2.to(dev, dtype=torch_dtype)
 
     # Ampere+ perf hint (optional)
     torch.backends.cuda.matmul.allow_tf32 = True
@@ -292,6 +292,7 @@ def main():
         revision=None,
         variant=None,
         device=args.device,
+        dtype=args.dtype,              # <-- honor CLI flag
     )
 
     # optional quantization, just like training
