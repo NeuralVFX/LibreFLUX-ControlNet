@@ -1,4 +1,5 @@
-# flux-controlnet
+# LibreFLUX-ControlNet
+![LibreFLUX example](examples/libre_flux_example.png)
 
 This repo is a controlnet training project for LibreFLUX, I borrowed heavily from these repos:
 - https://github.com/christopher-beckham/flux-controlnet ( Its basically a fork of this )
