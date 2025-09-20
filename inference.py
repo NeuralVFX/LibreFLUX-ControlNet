@@ -69,8 +69,8 @@ def load_pipeline(
     controlnet_path: str,
     revision: str = None,
     variant: str = None,
-     dtype: str = "fp16",   # match what works for you (fp16/bf16/fp32)
-     device='cuda'
+    dtype: str = "fp16",
+    device='cuda'
 ):
     torch_dtype = _ensure_supported_dtype(_str_to_torch_dtype(dtype))
 
@@ -98,7 +98,6 @@ def load_pipeline(
                                                           subfolder="scheduler")
     cn  = ControlNetFlux.from_pretrained(controlnet_path, torch_dtype=torch_dtype)
 
-    # --- assemble pipeline (DO NOT pass trust_remote_code to __init__) ---
     pipe = FluxControlNetPipeline(
         scheduler=sch,
         vae=vae,
@@ -110,18 +109,14 @@ def load_pipeline(
         controlnet=cn,
     )
 
-    # --- critical: avoid pipe.to(device) (moves everything at once, causes OOM) ---
-    # Move only the heavy parts you need on GPU. This mirrors the training setup better.
+    # device placement (kept as in your working version)
     dev = torch.device(device)
     tr.to(dev, dtype=torch_dtype)
     cn.to(dev, dtype=torch_dtype)
-    
-    # Move VAE + text encoders to GPU too (this is the big speed win)
     vae.to(dev, dtype=torch_dtype)
     te1.to(dev, dtype=torch_dtype)
     te2.to(dev, dtype=torch_dtype)
 
-    # Ampere+ perf hint (optional)
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.set_float32_matmul_precision("high")
 
@@ -163,6 +158,94 @@ def apply_quantization(pipe: FluxControlNetPipeline,
     if quantize_all:
         te1.to(device); te2.to(device)
 
+def _prepare_control_image(path: str, *, device: str, auto_hw: bool, multiple: int, max_dim: Optional[int],
+                           sketchify: bool, lineart):
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Missing control image: {path}")
+    raw = Image.open(path).convert("RGBA")
+    raw = make_alpha_all_ones(raw)
+    control_rgb = raw.convert("RGB")
+    if auto_hw:
+        h, w = _suggest_hw_like_input(control_rgb.width, control_rgb.height, multiple=multiple, max_dim=max_dim)
+    else:
+        h = w = _round_to_multiple(max(control_rgb.width, control_rgb.height), multiple)
+    if sketchify and lineart is not None:
+        cond = lineart(control_rgb).resize((w, h))
+    else:
+        cond = control_rgb.resize((w, h), Image.BILINEAR)
+    ctrl_resized = control_rgb.resize((w, h), Image.BILINEAR)
+    return cond, ctrl_resized, (h, w)
+
+def run_single(
+    pipe: FluxControlNetPipeline,
+    image_path: str,
+    prompt: str,
+    output_dir: str,
+    *,
+    steps: int = 28,
+    guidance_scale: float = 4.0,
+    controlnet_conditioning_scale: float = 1.0,
+    control_mode: int = None,
+    auto_hw: bool = True,
+    multiple: int = 16,
+    max_dim: int = None,
+    num_images_per_prompt: int = 1,
+    negative_prompt: str = "blurry, bokeh, jpg",
+    device: str = "cuda",
+    seed: Optional[int] = None,
+    sketchify_single: bool = False,
+):
+    os.makedirs(output_dir, exist_ok=True)
+
+    lineart = None
+    if HAS_LINEART:
+        try:
+            lineart = LineartDetector.from_pretrained("lllyasviel/Annotators").to(device)
+        except Exception:
+            lineart = None
+
+    gen_device = torch.device(device)
+    if seed is None:
+        seed = random.randint(0, 2**31 - 1)
+    g = torch.Generator(device=gen_device).manual_seed(seed)
+
+    cond, ctrl_resized, (h, w) = _prepare_control_image(
+        image_path, device=device, auto_hw=auto_hw, multiple=multiple, max_dim=max_dim,
+        sketchify=sketchify_single, lineart=lineart
+    )
+
+    with torch.inference_mode():
+        out = pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            control_image=cond,
+            control_mode=control_mode,
+            height=h, width=w,
+            num_inference_steps=steps,
+            guidance_scale=guidance_scale,
+            controlnet_conditioning_scale=controlnet_conditioning_scale,
+            num_images_per_prompt=num_images_per_prompt,
+            generator=g,
+            return_dict=True,
+        )
+    images = out.images
+
+    base = os.path.splitext(os.path.basename(image_path))[0]
+    for i, im in enumerate(images):
+        if w >= h:
+            canvas = Image.new("RGB", (w + w, h))
+            canvas.paste(ctrl_resized, (0, 0))
+            canvas.paste(im, (w, 0))
+        else:
+            canvas = Image.new("RGB", (w, h + h))
+            canvas.paste(ctrl_resized, (0, 0))
+            canvas.paste(im, (0, h))
+
+        suffix = f"_{seed}" + (f"_{i}" if num_images_per_prompt > 1 else "")
+        out_path = os.path.join(output_dir, f"{base}{suffix}.png")
+        canvas.save(out_path)
+        print(f"[saved] {out_path}")
+
 def run_from_metadata(
     pipe: FluxControlNetPipeline,
     metadata_dir: str,
@@ -192,7 +275,6 @@ def run_from_metadata(
     if not os.path.exists(meta):
         raise FileNotFoundError(f"Missing {meta}")
 
-    # one seed for the whole run
     gen_device = torch.device(device)
     seed = random.randint(0, 2**31 - 1)
     g = torch.Generator(device=gen_device).manual_seed(seed)
@@ -212,7 +294,6 @@ def run_from_metadata(
                 print(f"[skip] missing control image: {ctrl_path}")
                 continue
 
-            # handle alpha exactly like validation
             raw = Image.open(ctrl_path).convert("RGBA")
             raw = make_alpha_all_ones(raw)
             control_rgb = raw.convert("RGB")
@@ -261,11 +342,20 @@ def run_from_metadata(
                 print(f"[saved] {out_path}")
 
 def main():
-    ap = argparse.ArgumentParser("Batch FLUX-ControlNet inference from metadata.jsonl (with optional quantization)")
+    ap = argparse.ArgumentParser("Batch FLUX-ControlNet inference from metadata.jsonl (with optional quantization) + single-image mode")
     ap.add_argument("--base_model", required=True)
     ap.add_argument("--controlnet_path", required=True)
-    ap.add_argument("--metadata_dir", required=True)
+
+    # Metadata/batch mode
+    ap.add_argument("--metadata_dir", required=False)
     ap.add_argument("--output_dir", required=True)
+
+    # NEW: simple single-image mode
+    ap.add_argument("--image", type=str, default=None, help="Path to a single control image (enables simple mode when combined with --prompt)")
+    ap.add_argument("--prompt", type=str, default=None, help="Prompt text for simple mode")
+    ap.add_argument("--seed", type=int, default=None, help="Optional seed for simple mode")
+    ap.add_argument("--sketchify_single", action="store_true", help="Apply lineart detector to the single input image if available")
+
     ap.add_argument("--device", default="cuda:0")
     ap.add_argument("--dtype", choices=["bf16", "fp16", "fp32"], default="bf16")
     ap.add_argument("--steps", type=int, default=28)
@@ -277,13 +367,13 @@ def main():
     ap.add_argument("--multiple", type=int, default=16)
     ap.add_argument("--max_dim", type=int, default=None)
     ap.add_argument("--num_images_per_prompt", type=int, default=1)
+
     # quantization flags
     ap.add_argument("--quantize", action="store_true")
     ap.add_argument("--legacy_quant", action="store_true")
     ap.add_argument("--quantize_dtype", choices=["int8", "int4"], default="int8")
     ap.add_argument("--exclude_norms", action="store_true")
 
-    # FIX: actually parse the args
     args = ap.parse_args()
 
     pipe = load_pipeline(
@@ -292,10 +382,9 @@ def main():
         revision=None,
         variant=None,
         device=args.device,
-        dtype=args.dtype,              # <-- honor CLI flag
+        dtype=args.dtype,
     )
 
-    # optional quantization, just like training
     if args.quantize:
         apply_quantization(
             pipe,
@@ -305,21 +394,44 @@ def main():
             selective_exclude_norms=args.exclude_norms,
         )
 
-    run_from_metadata(
-        pipe,
-        metadata_dir=args.metadata_dir,
-        output_dir=args.output_dir,
-        steps=args.steps,
-        guidance_scale=args.guidance_scale,
-        controlnet_conditioning_scale=args.controlnet_conditioning_scale,
-        control_mode=args.control_mode,
-        auto_hw=args.auto_hw,
-        multiple=args.multiple,
-        max_dim=args.max_dim,
-        num_images_per_prompt=args.num_images_per_prompt,
-        negative_prompt=args.negative_prompt,
-        device=args.device,
-    )
+    # NEW: single-image path if both provided
+    if args.image is not None and args.prompt is not None:
+        run_single(
+            pipe,
+            image_path=args.image,
+            prompt=args.prompt,
+            output_dir=args.output_dir,
+            steps=args.steps,
+            guidance_scale=args.guidance_scale,
+            controlnet_conditioning_scale=args.controlnet_conditioning_scale,
+            control_mode=args.control_mode,
+            auto_hw=args.auto_hw,
+            multiple=args.multiple,
+            max_dim=args.max_dim,
+            num_images_per_prompt=args.num_images_per_prompt,
+            negative_prompt=args.negative_prompt,
+            device=args.device,
+            seed=args.seed,
+            sketchify_single=args.sketchify_single,
+        )
+    else:
+        if not args.metadata_dir:
+            raise ValueError("Either provide --image and --prompt for simple mode, or provide --metadata_dir for batch mode.")
+        run_from_metadata(
+            pipe,
+            metadata_dir=args.metadata_dir,
+            output_dir=args.output_dir,
+            steps=args.steps,
+            guidance_scale=args.guidance_scale,
+            controlnet_conditioning_scale=args.controlnet_conditioning_scale,
+            control_mode=args.control_mode,
+            auto_hw=args.auto_hw,
+            multiple=args.multiple,
+            max_dim=args.max_dim,
+            num_images_per_prompt=args.num_images_per_prompt,
+            negative_prompt=args.negative_prompt,
+            device=args.device,
+        )
 
 if __name__ == "__main__":
     main()
