@@ -6,12 +6,12 @@ The intent of this REPO is to make it possible to train a controlnet based on Li
 - Removing the distilled guidance vector during training
 - Running inference with CFG.
 
-I borrowed heavily from these repos:
+**Disclaimer** This is pieced together by modifying and borrowing from these repos: 
 - https://github.com/christopher-beckham/flux-controlnet ( Its a fork of this )
 - https://huggingface.co/jimmycarter/LibreFLUX
 - https://github.com/bghira/SimpleTuner
 
-**Disclaimer:** This is pieced together by modifying the original repo, and borrowing some components from SimpleTuner and LibreFlux. Use at your own risk!
+Use at your own risk!
 
 ## Setup
 
