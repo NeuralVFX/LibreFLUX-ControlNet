@@ -584,9 +584,7 @@ def get_dataset(
     dataset = load_dataset(
         path="{}/{}".format(train_data_dir, dataset_py_file),
         data_dir="{}".format(train_data_dir),
-                trust_remote_code=True,          # ← tell HF it’s OK to import the script
-                    #download_mode="force_redownload" , # <-- Add this line
-                    #cache_dir = './cache/'
+                trust_remote_code=True,     
     )
     # TODO - make num proc adjustable
     dataset = dataset.map(add_path_column, batched=False, num_proc=args.num_workers)
@@ -1455,7 +1453,7 @@ def main(args):
                     guidance=guidance,
                     pooled_projections=pooled_prompt_embeds,
                     encoder_hidden_states=prompt_embeds,
-                    attention_mask=prompt_mask,  # <-- ADD THIS
+                    attention_mask=prompt_mask, 
                     txt_ids=text_ids[0],
                     img_ids=latent_image_ids[0],
                     return_dict=False,
