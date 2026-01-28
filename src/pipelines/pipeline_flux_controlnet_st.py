@@ -279,11 +279,9 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
         prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
         prompt_embeds = prompt_embeds.view(batch_size * num_images_per_prompt, seq_len, -1)
 
-        #  ADD THIS: Get the attention mask and repeat it for each image
         prompt_attention_mask = text_inputs.attention_mask.to(device=device, dtype=dtype)
         prompt_attention_mask = prompt_attention_mask.repeat(num_images_per_prompt, 1)
 
-        # ADD THIS: Return the attention mask
         return prompt_embeds, prompt_attention_mask
 
     def _get_clip_prompt_embeds(
@@ -360,7 +358,6 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                 num_images_per_prompt=num_images_per_prompt,
             )
 
-            #  ADD THIS: Initialize mask and capture it from the T5 embedder
             prompt_attention_mask = None
             prompt_embeds, prompt_attention_mask = self._get_t5_prompt_embeds(
                 prompt=prompt_2,
@@ -433,7 +430,6 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
 
     @staticmethod
     # Copied from diffusers.pipelines.flux.pipeline_flux.FluxPipeline._prepare_latent_image_ids
-    # FIX: Correctly creates batched image IDs
     def _prepare_latent_image_ids(batch_size, height, width, device, dtype):
         latent_image_ids = torch.zeros(height // 2, width // 2, 3)
         latent_image_ids[..., 1] = latent_image_ids[..., 1] + torch.arange(height // 2)[:, None]
@@ -706,7 +702,6 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
         lora_scale = (
             self.joint_attention_kwargs.get("scale", None) if self.joint_attention_kwargs is not None else None
         )
-        # 💡 ADD THIS: Capture the attention_mask from encode_prompt
         (
             prompt_embeds,
             pooled_prompt_embeds,
@@ -723,7 +718,6 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
             lora_scale=lora_scale,
         )
 
-        # ✨ FIX: Encode negative prompts for CFG
         do_classifier_free_guidance = guidance_scale > 1.0
         if do_classifier_free_guidance:
             if negative_prompt_embeds is None or negative_pooled_prompt_embeds is None:
@@ -877,7 +871,6 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                     continue
 
 
-                # FIX: BATCH INPUTS FOR CFG
                 if do_classifier_free_guidance:
                     latent_model_input = torch.cat([latents] * 2)
                     current_prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
@@ -895,7 +888,6 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                     current_img_ids = latent_image_ids[0]
                     current_control_image = control_image
 
-                # FIX: Integrate with device handling
                 target_device = self.transformer.device
 
                 # Move all inputs to the target device
@@ -949,7 +941,6 @@ class FluxControlNetPipeline(DiffusionPipeline, FluxLoraLoaderMixin, FromSingleF
                     return_dict=False
                 )[0]
 
-                # FIX: Apply CFG formula
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_cond = noise_pred.chunk(2)
                     noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_cond - noise_pred_uncond)
