@@ -184,10 +184,6 @@ def log_validation(
 
     #pipeline.set_progress_bar_config(disable=True)
 
-    generator = None
-    if seed is not None:
-        generator = torch.Generator(device=pipeline.device).manual_seed(seed)
-
     # Pipelines can mutate scheduler state so backup the config
     # of the original scheduler and restore it after.
     original_scheduler = pipeline.scheduler.from_config(
@@ -231,6 +227,11 @@ def log_validation(
         t0 = time()
         pipeline.controlnet.to(pipeline.device)
 
+        generator = None
+        if seed is not None:
+            generator = torch.Generator(device=pipeline.device).manual_seed(seed)
+
+        
         images = pipeline(
             prompt=validation_prompt,
             negative_prompt="blurry, bokeh, jpg",
