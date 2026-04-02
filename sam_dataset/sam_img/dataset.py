@@ -1,3 +1,5 @@
+
+
 from datasets import GeneratorBasedBuilder, DatasetInfo, SplitGenerator, Features, Image, Value
 import os
 import json
@@ -25,8 +27,8 @@ class ProcessedImageDataset(GeneratorBasedBuilder):
             "image_file": Image(),
             "text": Value("string"),
             "file_path": Value("string"),  # Pass the original file path to the transform
-        "control_img_path": Value("string"),  # <-- Add this line
-        "test": Value("string")             # <-- Add this line
+            "control_img_path": Value("string"),  # <-- Add this line
+            "test": Value("string")             # <-- Add this line
         })
 
     def _split_generators(self, dl_manager) -> List[SplitGenerator]:
@@ -36,7 +38,7 @@ class ProcessedImageDataset(GeneratorBasedBuilder):
 
         # Use absolute path to make directory logic more robust
         img_dir = os.path.abspath(self.config.data_dir)
-        
+
         # Automatically determine the control directory path
         parent_dir = os.path.dirname(img_dir)
         img_folder_name = os.path.basename(img_dir)
@@ -61,7 +63,14 @@ class ProcessedImageDataset(GeneratorBasedBuilder):
             if filename.lower().endswith((".png", ".jpg", ".jpeg")):
                 base_name, _ = os.path.splitext(filename)
                 text_file_path = os.path.join(img_dir, f"{base_name}.txt")
-                control_img_path = os.path.join(control_dir, filename)
+
+                # Check for control image with any common extension
+                control_img_path = ""
+                for ext in [".png", ".jpg", ".jpeg", ".webp", ".bmp"]:
+                    temp_path = os.path.join(control_dir, base_name + ext)
+                    if os.path.exists(temp_path):
+                        control_img_path = temp_path
+                        break
 
                 # An example is only valid if the image, its .txt prompt, and its control image all exist.
                 if os.path.exists(text_file_path) and os.path.exists(control_img_path):
